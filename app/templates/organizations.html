@@ -1,0 +1,11 @@
+{% extends 'base.html' %}{% block body %}
+<div class="page-head"><div><div class="eyebrow">Подключение ящиков</div><h1>Наши организации</h1><p class="muted">Получаются из учётной записи Диадока, которая выдала доступ интеграции.</p></div>
+<form method="post" action="/organizations/discover"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="primary" type="submit">Получить из Диадока</button></form></div>
+{% if not configured %}<div class="alert error">Не заполнены параметры интеграции Диадока в .env. См. README.</div>{% endif %}
+<div class="org-list">{% for org in orgs %}<section class="card org-card">
+<div><h2>{{ org.name }}</h2><p class="muted">ИНН {{ org.inn }} · КПП {{ org.kpp }} · BoxId {{ org.box_id }}</p>
+{% if org.last_error %}<p class="danger">Ошибка: {{ org.last_error }}</p>{% elif org.last_sync %}<p class="sub">Последняя синхронизация: {{ org.last_sync }} UTC</p>{% endif %}</div>
+<form method="post" action="/organizations/{{ org.box_id }}/enable" class="inline-form"><input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="enabled" value="{{ '0' if org.enabled else '1' }}"><button class="{{ 'secondary' if org.enabled else 'primary' }} small" type="submit">{{ 'Отключить' if org.enabled else 'Включить' }}</button></form>
+<form method="post" action="/organizations/{{ org.box_id }}/recipients" class="recipient-form"><input type="hidden" name="csrf_token" value="{{ csrf }}"><label>Получатели письма о новом контрагенте (через запятую)<input name="emails" value="{{ org.mail_recipients }}" placeholder="user1@example.ru, user2@example.ru"></label><button class="secondary small" type="submit">Сохранить адреса</button></form>
+</section>{% else %}<div class="card empty">Нет организаций. Нажмите «Получить из Диадока».</div>{% endfor %}</div>
+{% endblock %}

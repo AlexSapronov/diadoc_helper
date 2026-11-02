@@ -1,0 +1,13 @@
+{% extends 'base.html' %}{% block body %}
+<div class="page-head"><div><div class="eyebrow">Входящее приглашение</div><h1>Принять приглашение</h1></div><a class="button secondary" href="/">К списку</a></div>
+<section class="card stack narrow">
+<div class="eyebrow">Контрагент</div><h2>{{ cp.name }}</h2><p class="muted">ИНН {{ cp.inn }}{% if cp.kpp %} · КПП {{ cp.kpp }}{% endif %}</p><div class="separator"></div>
+<div class="eyebrow">Наш получатель</div><strong>{{ org.name }}</strong><div class="separator"></div>
+<form method="post" action="/accept/{{ org.box_id }}/{{ cp.cp_box_id }}" class="stack"><input type="hidden" name="csrf_token" value="{{ csrf }}">
+<label>Группа контрагента <b class="required">*</b><select name="group_id" required><option value="">Выберите группу</option>
+{% for g in groups %}<option value="{{ g.group_id }}">{{ g.name }}</option>{% endfor %}</select></label>
+<p class="muted">Без выбора группы принять приглашение нельзя. Если приглашение содержит вложение с обязательной подписью, принятие может потребовать подписи непосредственно в Диадоке.</p>
+<button class="primary" type="submit" {% if not groups %}disabled{% endif %}>Принять и назначить группу</button></form>
+<a class="button secondary" href="{{ email_link }}">✉ Подготовить письмо о новом контрагенте</a>
+<p class="sub">Кнопка откроет ваш почтовый клиент и заполнит адресатов, тему и текст. Письмо будет отправлено только вами.</p>
+</section>{% endblock %}

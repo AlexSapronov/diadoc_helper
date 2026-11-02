@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="ru">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% block title %}ЭДО Контроль{% endblock %}</title>
+<link rel="stylesheet" href="{{ url_for('static',path='/style.css') }}"></head>
+<body>
+{% if user %}
+<header class="topbar"><a class="brand" href="/">◈ ЭДО Контроль</a>
+<nav><a href="/">Приглашения</a><a href="/invite">Пригласить</a><a href="/notifications">Уведомления</a><a href="/organizations">Организации</a><a href="/audit">Журнал</a></nav>
+<form method="post" action="/logout"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="linkbtn" type="submit">Выход</button></form></header>
+{% endif %}
+<main class="wrap">
+{% if request.query_params.get('notice') %}<div role="status" class="alert good">{{ request.query_params.get('notice') }}</div>{% endif %}
+{% if error or request.query_params.get('error') %}<div role="alert" class="alert error">{{ error or request.query_params.get('error') }}</div>{% endif %}
+{% block body %}{% endblock %}
+</main>
+<footer>Контур.Диадок API · синхронизация статусов · интерфейс для сотрудников</footer>
+</body></html>

@@ -1,0 +1,7 @@
+{% extends 'base.html' %}{% block body %}<div class="page-head"><div><div class="eyebrow">События</div><h1>Уведомления</h1><p class="muted">В том числе о принятии исходящих приглашений.</p></div></div>
+<div class="stack">{% for n in notifications %}<section class="card notice {{ 'faded' if n.read_at else '' }}">
+<div><div class="row"><h2>{{ n.cp_name or n.cp_box_id }}</h2>{% if not n.read_at %}<span class="tag tag-warning">Новое</span>{% endif %}</div>
+<p>{{ n.text }}</p><p class="muted">{{ n.org_name }} · ИНН {{ n.cp_inn or 'не указан' }} · {{ n.created_at }} UTC</p></div>
+<div class="actions"><a href="{{ n.mail_href }}" class="button primary small">✉ Подготовить письмо</a>
+{% if not n.read_at %}<form method="post" action="/notifications/{{ n.id }}/read"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="secondary small" type="submit">Прочитано</button></form>{% endif %}</div></section>
+{% else %}<div class="card empty">Новых событий пока нет.</div>{% endfor %}</div>{% endblock %}

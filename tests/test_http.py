@@ -25,7 +25,7 @@ def test_login_and_csrf_required():
         assert client.get('/organizations').status_code == 200
 
 
-def test_populated_dashboard_renders_groups_and_action():
+def test_populated_dashboard_renders_existing_groups_and_action():
     from app.db import database, init_db, utcnow
     init_db()
     a = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
@@ -35,7 +35,7 @@ def test_populated_dashboard_renders_groups_and_action():
         c.execute('INSERT OR REPLACE INTO organizations(box_id,name,inn,enabled,mail_recipients) VALUES(?,?,?,?,?)',
                   (a,'ООО «Наше предприятие»','1111111111',1,'manager@example.com'))
         c.execute('INSERT OR REPLACE INTO groups(box_id,group_id,name) VALUES(?,?,?)',
-                  (a,g,'Клиенты'))
+                  (a,g,'ОП СПБ'))
         c.execute('''INSERT OR REPLACE INTO counterparties(box_id,cp_box_id,name,inn,status,
                      direction,current_group_id,updated_at) VALUES(?,?,?,?,?,?,?,?)''',
                   (a,cp,'ООО «Клиент»','2222222222','IsMyCounteragent','outgoing',g,utcnow()))
@@ -46,6 +46,6 @@ def test_populated_dashboard_renders_groups_and_action():
         result=client.get('/?box='+a)
         assert result.status_code==200
         assert 'ООО «Клиент»' in result.text
-        assert 'Клиенты' in result.text
+        assert 'ОП СПБ' in result.text
         assert 'Изменить группу' in result.text
         assert 'mailto:manager@example.com' in result.text

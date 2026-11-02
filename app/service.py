@@ -1,4 +1,4 @@
-"""Sync state machine: desired group is persisted before the remote invitation request."""
+"""Sync state machine: selected existing Diadoc group persists before each invite."""
 import asyncio
 from .db import database, one, rows, utcnow, audit
 from .diadoc import DiadocError, guid
@@ -113,7 +113,7 @@ class Service:
                     if org['last_sync'] and not prev and not pending and not waiting_same_inn and group_id == DEFAULT_GROUP:
                         c.execute('''INSERT INTO notifications(box_id,cp_box_id,kind,text,created_at)
                                      VALUES(?,?,?,?,?)''', (box_id, cp_box, 'external_unassigned',
-                                     'Партнерские отношения установлены вне приложения: назначьте группу', utcnow()))
+                                     'Партнерские отношения установлены вне приложения: выберите группу Диадока', utcnow()))
             c.execute('UPDATE organizations SET last_sync=?,last_error=? WHERE box_id=?',
                       (utcnow(), '', box_id))
         await self.apply_groups(box_id)
@@ -152,8 +152,10 @@ class Service:
             group = one('SELECT group_id FROM groups WHERE box_id=? AND group_id=?',
                         (box_id, intent['target_group_id']))
             if not group:
+                # Do not create or modify groups in the customer's existing Diadoc structure.
                 with database() as c:
-                    c.execute('UPDATE intents SET error=? WHERE id=?', ('Выбранная группа удалена из Диадока', intent['id']))
+                    c.execute('UPDATE intents SET error=? WHERE id=?',
+                              ('Выбранная группа больше не существует в Диадоке. Нужна ручная смена группы.', intent['id']))
                 continue
             try:
                 await self.api.assign_group(box_id, intent['cp_box_id'], intent['target_group_id'])
@@ -169,14 +171,11 @@ class Service:
                     c.execute('UPDATE intents SET error=? WHERE id=?', (str(exc), intent['id']))
 
     def verify_group(self, box_id, group_id):
-        box_id = guid(box_id)
-        group_id = guid(group_id)
-        if group_id == DEFAULT_GROUP:
-            raise ValueError('Нужно выбрать отдельную группу, а не «По умолчанию».')
+        box_id, group_id = guid(box_id), guid(group_id)
         org = one('SELECT * FROM organizations WHERE box_id=? AND enabled=1', (box_id,))
         group = one('SELECT * FROM groups WHERE box_id=? AND group_id=?', (box_id, group_id))
-        if not org or not group:
-            raise ValueError('Выбранная организация или группа недоступна. Обновите список.')
+        if not org or not group or group_id == DEFAULT_GROUP:
+            raise ValueError('Выберите существующую группу контрагентов Диадока для нужной организации.')
         return org, group
 
     async def invite(self, box_id, group_id, cp_box_id, inn, cp_name, message=''):
@@ -190,10 +189,12 @@ class Service:
                 AND cp_box_id<>'' AND assign_state='pending' ORDER BY id DESC LIMIT 1''',
                 (box_id, cp_box_id)).fetchone()
             if current:
-                raise ValueError('Для этого ящика уже есть приглашение с ожидающей группой.')
+                raise ValueError('Для этого ящика уже есть приглашение с ожидающим назначением группы.')
+        with database() as c:
             now = utcnow()
             cursor = c.execute('''INSERT INTO intents(box_id,cp_box_id,cp_inn,cp_name,direction,
-                target_group_id,send_state,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)''',
+                target_group_id,send_state,created_at,updated_at)
+                VALUES(?,?,?,?,?,?,?,?,?)''',
                 (box_id, cp_box_id, inn, cp_name[:255], 'outgoing', group_id, 'requesting', now, now))
             intent_id = cursor.lastrowid
             audit(c, box_id, cp_box_id, 'outgoing_requested', f'ИНН {inn}, группа {group["name"]}')
@@ -222,9 +223,9 @@ class Service:
         with database() as c:
             now = utcnow()
             cursor = c.execute('''INSERT INTO intents(box_id,cp_box_id,cp_inn,cp_name,direction,
-                target_group_id,send_state,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)''',
-                (box_id, cp_box_id, cp['inn'], cp['name'], 'incoming', group_id,
-                 'requesting', now, now))
+                target_group_id,send_state,created_at,updated_at)
+                VALUES(?,?,?,?,?,?,?,?,?)''',
+                (box_id, cp_box_id, cp['inn'], cp['name'], 'incoming', group_id, 'requesting', now, now))
             intent_id = cursor.lastrowid
             audit(c, box_id, cp_box_id, 'incoming_accepted_requested', group['name'])
         try:

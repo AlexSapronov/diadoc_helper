@@ -58,6 +58,11 @@ def own_orgs():
     return rows('SELECT * FROM organizations ORDER BY name')
 
 
+def group_options(box_id):
+    return rows('SELECT group_id,name FROM groups WHERE box_id=? AND group_id<>? ORDER BY name',
+                (box_id, DEFAULT_GROUP))
+
+
 def require_login(request):
     if not request.session.get('authenticated'):
         raise HTTPException(303, headers={'Location': '/login'})
@@ -167,13 +172,13 @@ async def index(request: Request, box: str = '', status: str = '', q: str = ''):
     summaries = rows('''SELECT cp.status,COUNT(*) AS count FROM counterparties cp
         JOIN organizations o ON o.box_id=cp.box_id WHERE o.enabled=1 GROUP BY cp.status''')
     stats = {s['status']: s['count'] for s in summaries}
-    pending = rows('''SELECT i.*,o.name AS org_name FROM intents i
-        JOIN organizations o ON o.box_id=i.box_id WHERE o.enabled=1 AND i.assign_state='pending'
+    pending = rows('''SELECT i.*,o.name AS org_name, g.name AS target_group_name FROM intents i
+        JOIN organizations o ON o.box_id=i.box_id
+        LEFT JOIN groups g ON g.box_id=i.box_id AND g.group_id=i.target_group_id
+        WHERE o.enabled=1 AND i.assign_state='pending'
         ORDER BY i.id DESC LIMIT 100''')
     unread = one('SELECT COUNT(*) AS n FROM notifications WHERE read_at=?', ('',))['n']
-    org_groups = {}
-    for g in rows('SELECT * FROM groups ORDER BY name'):
-        org_groups.setdefault(g['box_id'], []).append(g)
+    org_groups = {o['box_id']: group_options(o['box_id']) for o in own_orgs() if o['enabled']}
     return view(request, 'index.html', counterparties=cps, stats=stats,
                 selected_box=box, selected_status=status, search=q,
                 pending=pending, unread=unread, status_labels=STATUS_LABELS, org_groups=org_groups)
@@ -182,7 +187,7 @@ async def index(request: Request, box: str = '', status: str = '', q: str = ''):
 @app.get('/organizations')
 async def organizations_page(request: Request):
     require_login(request)
-    return view(request, 'organizations.html')
+    return view(request, 'organizations.html', group_counts={r['box_id']:r['n'] for r in rows('SELECT box_id,COUNT(*) n FROM groups WHERE group_id<>? GROUP BY box_id', (DEFAULT_GROUP,))})
 
 
 @app.post('/organizations/discover')
@@ -242,8 +247,7 @@ async def invite_form(request: Request, box: str = '', inn: str = '', kpp: str =
         box = orgs[0]['box_id']
     if box and box not in [o['box_id'] for o in orgs]:
         raise HTTPException(404)
-    group_list = rows('SELECT * FROM groups WHERE box_id=? AND group_id<>? ORDER BY name',
-                      (box, DEFAULT_GROUP)) if box else []
+    groups = group_options(box) if box else []
     search_results = []
     err = ''
     if inn:
@@ -261,7 +265,7 @@ async def invite_form(request: Request, box: str = '', inn: str = '', kpp: str =
             except DiadocError as exc:
                 err = str(exc)
     return view(request, 'invite.html', selected_box=box, inn=inn, kpp=kpp,
-                groups=group_list, results=search_results, lookup_error=err)
+                groups=groups, results=search_results, lookup_error=err)
 
 
 @app.post('/invite/send')
@@ -281,7 +285,7 @@ async def invite_send(request: Request, box_id: str = Form(), group_id: str = Fo
             real_org, real_box = real[0]
             cp_name = real_box.get('Title') or real_org.get('ShortName') or cp_name
         await service.invite(box_id, group_id, cp_box_id, inn, cp_name, message)
-        return redirect(msg='Отправка приглашения запущена. Группа будет назначена после принятия.')
+        return redirect(msg='Отправка приглашения запущена. Группа назначится после принятия.')
     except (ValueError, DiadocError) as exc:
         return redirect('/invite?'+urlencode({'box':box_id, 'inn':inn}), error=str(exc))
 
@@ -295,8 +299,7 @@ async def accept_form(request: Request, box_id: str, cp_box_id: str):
     org = one('SELECT * FROM organizations WHERE box_id=? AND enabled=1', (box_id,))
     if not cp or not org:
         raise HTTPException(404)
-    groups = rows('SELECT * FROM groups WHERE box_id=? AND group_id<>? ORDER BY name',
-                  (box_id, DEFAULT_GROUP))
+    groups = group_options(box_id)
     return view(request, 'accept.html', cp=cp, org=org, groups=groups,
                 email_link=mail_href(org, cp))
 
@@ -308,7 +311,7 @@ async def accept(request: Request, box_id: str, cp_box_id: str, group_id: str = 
     check_csrf(request, csrf_token)
     try:
         await service.accept(box_id, cp_box_id, group_id)
-        return redirect(msg='Принятие запущено. Назначение группы произойдёт после подтверждения Диадока.')
+        return redirect(msg='Принятие запущено. Выбранная группа назначится после подтверждения Диадока.')
     except (ValueError, DiadocError) as exc:
         return redirect(f'/accept/{quote(box_id)}/{quote(cp_box_id)}', error=str(exc))
 
@@ -364,6 +367,6 @@ async def assign_existing(request: Request, box_id: str, cp_box_id: str,
             c.execute("UPDATE notifications SET read_at=? WHERE box_id=? AND cp_box_id=? AND kind='external_unassigned'",
                       (utcnow(), box_id, cp_box_id))
             audit(c, box_id, cp_box_id, 'group_assigned_manually', group['name'])
-        return redirect(msg='Группа сохранена в Диадоке')
+        return redirect(msg='Группа контрагента сохранена в Диадоке')
     except (ValueError, DiadocError) as exc:
         return redirect(error=str(exc))

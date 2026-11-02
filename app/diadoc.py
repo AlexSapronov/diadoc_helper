@@ -141,14 +141,17 @@ class Diadoc:
             params['kpp'] = kpp
         return (await self.request('GET', '/GetOrganizationsByInnKpp', params=params) or {}).get('Organizations', [])
 
-    async def acquire(self, own_box, cp_box='', inn='', message=''):
+    async def acquire(self, own_box, cp_box='', inn='', message='', department_id=''):
         body = {'MessageToCounteragent': message[:2000]}
         if cp_box:
             body['BoxId'] = guid(cp_box)
         else:
             body['Inn'] = inn
+        params = {'myBoxId': guid(own_box)}
+        if department_id:
+            params['myDepartmentId'] = guid(department_id)
         result = await self.request('POST', '/V3/AcquireCounteragent',
-                                    params={'myBoxId': guid(own_box)}, body=body)
+                                    params=params, body=body)
         if not result or not result.get('TaskId'):
             raise DiadocError('Диадок не вернул идентификатор операции приглашения.')
         return result['TaskId']

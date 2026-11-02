@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block body %}
-<div class="page-head"><div><div class="eyebrow">Управление контрагентами</div><h1>Приглашения ЭДО</h1><p class="muted">Все подключённые ящики, история статусов и назначение групп в Диадоке.</p></div>
+<div class="page-head"><div><div class="eyebrow">Управление контрагентами</div><h1>Приглашения ЭДО</h1><p class="muted">Все подключённые ящики, история статусов и назначение существующих групп Диадока.</p></div>
 <div class="actions"><form action="/sync" method="post"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="secondary" type="submit">↻ Синхронизировать</button></form><a class="button primary" href="/invite">+ Пригласить</a></div></div>
 <div class="stats">
 <a class="stat card" href="/?status=InvitesMe"><span>Входящие</span><strong>{{ stats.get('InvitesMe',0) }}</strong></a>
@@ -15,18 +15,18 @@
 </form>
 {% if not orgs|selectattr('enabled')|list %}<div class="empty card">Пока нет включённых организаций. Перейдите в <a href="/organizations">«Организации»</a>, получите ящики из Диадока и включите нужные.</div>{% endif %}
 {% if pending %}<details class="card pending"><summary>Ожидающие операции: {{ pending|length }} <span class="muted">(отправка, принятие или назначение группы)</span></summary>
-<table><thead><tr><th>Организация</th><th>Контрагент</th><th>Тип</th><th>Статус отправки</th><th>Группа</th><th>Ошибка</th></tr></thead><tbody>{% for p in pending %}<tr><td>{{ p.org_name }}</td><td>{{ p.cp_name or p.cp_inn or p.cp_box_id }}</td><td>{{ 'Входящее' if p.direction=='incoming' else 'Исходящее' }}</td><td>{{ p.send_state }}</td><td>{{ 'Ожидается' if p.assign_state=='pending' else p.assign_state }}</td><td class="danger">{{ p.error }}</td></tr>{% endfor %}</tbody></table></details>{% endif %}
+<table><thead><tr><th>Организация</th><th>Контрагент</th><th>Тип</th><th>Статус отправки</th><th>Группа Диадока</th><th>Ошибка</th></tr></thead><tbody>{% for p in pending %}<tr><td>{{ p.org_name }}</td><td>{{ p.cp_name or p.cp_inn or p.cp_box_id }}</td><td>{{ 'Входящее' if p.direction=='incoming' else 'Исходящее' }}</td><td>{{ p.send_state }}</td><td>{{ p.target_group_name or 'Группа удалена / не найдена' }}</td><td class="danger">{{ p.error }}</td></tr>{% endfor %}</tbody></table></details>{% endif %}
 <section class="card table-card"><div class="section-title"><h2>Контрагенты</h2><small>Показано {{ counterparties|length }}</small></div>
 <div class="table-wrap"><table><thead><tr><th>Контрагент</th><th>Наша организация</th><th>Состояние</th><th>Группа Диадока</th><th>Действие</th></tr></thead><tbody>
 {% for cp in counterparties %}<tr>
 <td><strong>{{ cp.name }}</strong><div class="sub">ИНН {{ cp.inn }}{% if cp.kpp %} · КПП {{ cp.kpp }}{% endif %}</div></td>
 <td>{{ cp.org_name }}</td>
 <td><span class="tag {{ 'tag-warning' if cp.status=='InvitesMe' else 'tag-good' if cp.status=='IsMyCounteragent' else '' }}">{{ status_name(cp.status) }}</span></td>
-<td>{% if cp.assign_state=='pending' and cp.selected_group_id %}<span class="muted">Назначается после принятия</span>{% else %}{{ cp.group_name or 'Без группы' }}{% endif %}
+<td>{% if cp.assign_state=='pending' and cp.selected_group_id %}<span class="muted">Назначается после принятия</span>{% else %}{{ cp.group_name or 'Не назначена' }}{% endif %}
 {% if cp.status=='IsMyCounteragent' %}
 <details class="small-details"><summary>Изменить группу</summary><form method="post" action="/counterparty/{{ cp.box_id }}/{{ cp.cp_box_id }}/group" class="compact-form">
 <input type="hidden" name="csrf_token" value="{{ csrf }}"><select name="group_id" required><option value="">Выберите группу</option>
-{% for g in org_groups.get(cp.box_id,[]) if g.group_id!='00000000-0000-0000-0000-000000000000' %}<option value="{{ g.group_id }}">{{ g.name }}</option>{% endfor %}
+{% for g in org_groups.get(cp.box_id,[]) %}<option value="{{ g.group_id }}" {% if cp.current_group_id == g.group_id %}selected{% endif %}>{{ g.name }}</option>{% endfor %}
 </select><button class="secondary small" type="submit">Сохранить</button></form></details>{% endif %}</td>
 <td><div class="cell-actions">{% if cp.status=='InvitesMe' %}<a class="button primary small" href="/accept/{{ cp.box_id }}/{{ cp.cp_box_id }}">Принять</a>{% elif cp.status=='IsMyCounteragent' %}<a class="button secondary small" href="{{ cp.mail_href }}">✉ Письмо</a>{% else %}<span class="muted">Ожидание</span>{% endif %}</div></td>
 </tr>{% else %}<tr><td colspan="5" class="empty">Ничего не найдено. Попробуйте изменить фильтры или нажмите «Синхронизировать».</td></tr>{% endfor %}

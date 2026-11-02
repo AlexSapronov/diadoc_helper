@@ -1,5 +1,5 @@
 {% extends 'base.html' %}{% block body %}
-<div class="page-head"><div><div class="eyebrow">Исходящее приглашение</div><h1>Пригласить контрагента</h1><p class="muted">Сначала найдите организацию по ИНН, затем выберите её ящик и группу.</p></div></div>
+<div class="page-head"><div><div class="eyebrow">Исходящее приглашение</div><h1>Пригласить контрагента</h1><p class="muted">Сначала найдите организацию по ИНН, затем выберите её ящик и существующую группу Диадока.</p></div></div>
 <form class="card form-grid" action="/invite" method="get">
 <label>От нашей организации<select name="box" required>{% for o in orgs if o.enabled %}<option value="{{ o.box_id }}" {% if o.box_id==selected_box %}selected{% endif %}>{{ o.name }}</option>{% endfor %}</select></label>
 <label>ИНН контрагента<input name="inn" value="{{ inn }}" required pattern="[0-9]{10}|[0-9]{12}" placeholder="10 или 12 цифр"></label>
@@ -14,10 +14,10 @@
 {% for c in results %}<option value="{{ c.box_id }}">{{ c.name }} · ИНН {{ c.inn }} / КПП {{ c.kpp }}{% if c.roaming %} (роуминг){% endif %}</option>{% endfor %}
 {% if not results %}<option value="NO_BOX_FOUND" disabled>Ящик не найден</option>{% endif %}</select></label>
 {% if not results %}<p class="muted">По этому ИНН не найден действующий ящик. В текущей версии отправка только по ИНН без явного ящика отключена, чтобы не пригласить неверный филиал.</p>{% endif %}
-<label>Группа контрагента <b class="required">*</b><select name="group_id" required><option value="">Выберите группу</option>
+<label>Группа контрагентов Диадока <b class="required">*</b><select name="group_id" required><option value="">Выберите группу</option>
 {% for g in groups %}<option value="{{ g.group_id }}">{{ g.name }}</option>{% endfor %}</select></label>
 <label>Комментарий к приглашению (необязательно)<textarea rows="3" name="message" maxlength="2000" placeholder="Приглашаем к электронному документообороту"></textarea></label>
-<p class="muted">Приглашение будет отправлено сейчас. Назначение группы произойдёт автоматически после установления отношений в Диадоке.</p>
+<p class="muted">Выберите уже существующую группу своей организации. После принятия приглашения контрагент автоматически получит эту группу в Диадоке. Доступ к подразделениям определяется настройками самой группы; новых групп приложение не создаёт.</p>
 <button class="primary" type="submit" {% if not results or not groups %}disabled{% endif %}>Отправить приглашение</button>
 </form></section>{% endif %}
 {% endblock %}

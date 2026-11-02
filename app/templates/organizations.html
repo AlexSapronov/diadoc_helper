@@ -4,6 +4,7 @@
 {% if not configured %}<div class="alert error">Не заполнены параметры интеграции Диадока в .env. См. README.</div>{% endif %}
 <div class="org-list">{% for org in orgs %}<section class="card org-card">
 <div><h2>{{ org.name }}</h2><p class="muted">ИНН {{ org.inn }} · КПП {{ org.kpp }} · BoxId {{ org.box_id }}</p>
+<p class="sub">Групп контрагентов синхронизировано: {{ group_counts.get(org.box_id, 0) }}. Приглашения используют уже существующие группы Диадока, без создания новых.</p>
 {% if org.last_error %}<p class="danger">Ошибка: {{ org.last_error }}</p>{% elif org.last_sync %}<p class="sub">Последняя синхронизация: {{ org.last_sync }} UTC</p>{% endif %}</div>
 <form method="post" action="/organizations/{{ org.box_id }}/enable" class="inline-form"><input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="enabled" value="{{ '0' if org.enabled else '1' }}"><button class="{{ 'secondary' if org.enabled else 'primary' }} small" type="submit">{{ 'Отключить' if org.enabled else 'Включить' }}</button></form>
 <form method="post" action="/organizations/{{ org.box_id }}/recipients" class="recipient-form"><input type="hidden" name="csrf_token" value="{{ csrf }}"><label>Получатели письма о новом контрагенте (через запятую)<input name="emails" value="{{ org.mail_recipients }}" placeholder="user1@example.ru, user2@example.ru"></label><button class="secondary small" type="submit">Сохранить адреса</button></form>
